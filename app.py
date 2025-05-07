@@ -101,85 +101,86 @@ def get_glb_base64(model_path):
         return None
 
 # Three.js HTML 템플릿
-THREE_JS_TEMPLATE = """
-<div id="scene-container" style="width: 100%; height: 600px;"></div>
-<script>
-    try {
-        // Three.js 초기화
-        const container = document.getElementById('scene-container');
-        const scene = new THREE.Scene();
-        const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
-        
-        // 렌더러 설정
-        const renderer = new THREE.WebGLRenderer();
-        renderer.setSize(container.clientWidth, container.clientHeight);
-        renderer.setClearColor(0xffffff);
-        container.appendChild(renderer.domElement);
-
-        // 조명 설정
-        const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-        scene.add(ambientLight);
-        const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-        directionalLight.position.set(5, 5, 5);
-        scene.add(directionalLight);
-
-        // 컨트롤 설정
-        const controls = new THREE.OrbitControls(camera, renderer.domElement);
-        controls.enableDamping = true;
-        camera.position.set(2, 2, 2);
-        controls.update();
-
-        // GLB 로더
-        const loader = new THREE.GLTFLoader();
-
-        // 캐릭터 모델 로드
-        const characterData = '{character_data}';
-        const characterBlob = new Blob([Uint8Array.from(atob(characterData), c => c.charCodeAt(0))], { type: 'model/gltf-binary' });
-        const characterUrl = URL.createObjectURL(characterBlob);
-        loader.load(characterUrl, 
-            (gltf) => {
-                scene.add(gltf.scene);
-            },
-            undefined,
-            (error) => {
-                console.error('캐릭터 모델 로드 중 오류:', error);
-            }
-        );
-
-        // 베게 모델 로드
-        const pillowData = '{pillow_data}';
-        const pillowBlob = new Blob([Uint8Array.from(atob(pillowData), c => c.charCodeAt(0))], { type: 'model/gltf-binary' });
-        const pillowUrl = URL.createObjectURL(pillowBlob);
-        loader.load(pillowUrl, 
-            (gltf) => {
-                gltf.scene.position.y = -0.5;
-                scene.add(gltf.scene);
-            },
-            undefined,
-            (error) => {
-                console.error('베게 모델 로드 중 오류:', error);
-            }
-        );
-
-        // 애니메이션 루프
-        function animate() {
-            requestAnimationFrame(animate);
-            controls.update();
-            renderer.render(scene, camera);
-        }
-        animate();
-
-        // 반응형 처리
-        window.addEventListener('resize', () => {
-            camera.aspect = container.clientWidth / container.clientHeight;
-            camera.updateProjectionMatrix();
+def get_three_js_html(character_data, pillow_data):
+    return f"""
+    <div id="scene-container" style="width: 100%; height: 600px;"></div>
+    <script>
+        try {{
+            // Three.js 초기화
+            const container = document.getElementById('scene-container');
+            const scene = new THREE.Scene();
+            const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+            
+            // 렌더러 설정
+            const renderer = new THREE.WebGLRenderer();
             renderer.setSize(container.clientWidth, container.clientHeight);
-        });
-    } catch (error) {
-        console.error('Three.js 초기화 중 오류:', error);
-    }
-</script>
-"""
+            renderer.setClearColor(0xffffff);
+            container.appendChild(renderer.domElement);
+
+            // 조명 설정
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+            scene.add(ambientLight);
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(5, 5, 5);
+            scene.add(directionalLight);
+
+            // 컨트롤 설정
+            const controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            camera.position.set(2, 2, 2);
+            controls.update();
+
+            // GLB 로더
+            const loader = new THREE.GLTFLoader();
+
+            // 캐릭터 모델 로드
+            const characterData = '{character_data}';
+            const characterBlob = new Blob([Uint8Array.from(atob(characterData), c => c.charCodeAt(0))], {{ type: 'model/gltf-binary' }});
+            const characterUrl = URL.createObjectURL(characterBlob);
+            loader.load(characterUrl, 
+                (gltf) => {{
+                    scene.add(gltf.scene);
+                }},
+                undefined,
+                (error) => {{
+                    console.error('캐릭터 모델 로드 중 오류:', error);
+                }}
+            );
+
+            // 베게 모델 로드
+            const pillowData = '{pillow_data}';
+            const pillowBlob = new Blob([Uint8Array.from(atob(pillowData), c => c.charCodeAt(0))], {{ type: 'model/gltf-binary' }});
+            const pillowUrl = URL.createObjectURL(pillowBlob);
+            loader.load(pillowUrl, 
+                (gltf) => {{
+                    gltf.scene.position.y = -0.5;
+                    scene.add(gltf.scene);
+                }},
+                undefined,
+                (error) => {{
+                    console.error('베게 모델 로드 중 오류:', error);
+                }}
+            );
+
+            // 애니메이션 루프
+            function animate() {{
+                requestAnimationFrame(animate);
+                controls.update();
+                renderer.render(scene, camera);
+            }}
+            animate();
+
+            // 반응형 처리
+            window.addEventListener('resize', () => {{
+                camera.aspect = container.clientWidth / container.clientHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(container.clientWidth, container.clientHeight);
+            }});
+        }} catch (error) {{
+            console.error('Three.js 초기화 중 오류:', error);
+        }}
+    </script>
+    """
 
 # 3D 씬 생성 함수
 def create_3d_scene():
@@ -196,10 +197,7 @@ def create_3d_scene():
         <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
         <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-        {THREE_JS_TEMPLATE.format(
-            character_data=character_data,
-            pillow_data=pillow_data
-        )}
+        {get_three_js_html(character_data, pillow_data)}
         """
         
         return html
