@@ -90,18 +90,7 @@ def save_sleep_record():
         # 최근 7일 기록만 유지
         st.session_state.sleep_history = st.session_state.sleep_history[-7:]
 
-# GLB 파일을 base64로 인코딩하는 함수
-def get_glb_base64(model_path):
-    try:
-        with open(model_path, 'rb') as f:
-            model_data = f.read()
-        return base64.b64encode(model_data).decode('utf-8')
-    except Exception as e:
-        st.error(f"모델 로드 중 오류 발생: {str(e)}")
-        return None
-
-# Three.js HTML 템플릿
-def get_three_js_html(character_data, pillow_data):
+def get_three_js_html():
     return f"""
     <div id="scene-container" style="width: 100%; height: 600px;"></div>
     <script>
@@ -112,9 +101,9 @@ def get_three_js_html(character_data, pillow_data):
             const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
             
             // 렌더러 설정
-            const renderer = new THREE.WebGLRenderer();
+            const renderer = new THREE.WebGLRenderer({{ antialias: true }});
             renderer.setSize(container.clientWidth, container.clientHeight);
-            renderer.setClearColor(0xffffff);
+            renderer.setClearColor(0xf0f0f0);
             container.appendChild(renderer.domElement);
 
             // 조명 설정
@@ -130,41 +119,39 @@ def get_three_js_html(character_data, pillow_data):
             camera.position.set(2, 2, 2);
             controls.update();
 
-            // GLB 로더
-            const loader = new THREE.GLTFLoader();
+            // 베게 생성
+            const pillowGeometry = new THREE.BoxGeometry(2, 0.3, 1);
+            const pillowMaterial = new THREE.MeshPhongMaterial({{
+                color: '{st.session_state.pillow_color}',
+                shininess: 30
+            }});
+            const pillow = new THREE.Mesh(pillowGeometry, pillowMaterial);
+            pillow.position.y = -0.2;
+            scene.add(pillow);
 
-            // 캐릭터 모델 로드
-            const characterData = '{character_data}';
-            const characterBlob = new Blob([Uint8Array.from(atob(characterData), c => c.charCodeAt(0))], {{ type: 'model/gltf-binary' }});
-            const characterUrl = URL.createObjectURL(characterBlob);
-            loader.load(characterUrl, 
-                (gltf) => {{
-                    scene.add(gltf.scene);
-                }},
-                undefined,
-                (error) => {{
-                    console.error('캐릭터 모델 로드 중 오류:', error);
-                }}
-            );
-
-            // 베게 모델 로드
-            const pillowData = '{pillow_data}';
-            const pillowBlob = new Blob([Uint8Array.from(atob(pillowData), c => c.charCodeAt(0))], {{ type: 'model/gltf-binary' }});
-            const pillowUrl = URL.createObjectURL(pillowBlob);
-            loader.load(pillowUrl, 
-                (gltf) => {{
-                    gltf.scene.position.y = -0.5;
-                    scene.add(gltf.scene);
-                }},
-                undefined,
-                (error) => {{
-                    console.error('베게 모델 로드 중 오류:', error);
-                }}
-            );
+            // 캐릭터 생성 (간단한 큐브로 대체)
+            const characterGeometry = new THREE.BoxGeometry(0.5, 0.5, 0.5);
+            const characterMaterial = new THREE.MeshPhongMaterial({{
+                color: 0x00ff00,
+                shininess: 50
+            }});
+            const character = new THREE.Mesh(characterGeometry, characterMaterial);
+            character.position.y = 0.3;
+            scene.add(character);
 
             // 애니메이션 루프
             function animate() {{
                 requestAnimationFrame(animate);
+                
+                // 캐릭터 애니메이션
+                if ({str(st.session_state.is_sleeping).lower()}) {{
+                    character.rotation.x = Math.PI / 2;
+                    character.position.y = 0.1;
+                }} else {{
+                    character.rotation.x = 0;
+                    character.position.y = 0.3;
+                }}
+                
                 controls.update();
                 renderer.render(scene, camera);
             }}
@@ -181,29 +168,6 @@ def get_three_js_html(character_data, pillow_data):
         }}
     </script>
     """
-
-# 3D 씬 생성 함수
-def create_3d_scene():
-    try:
-        # GLB 파일 로드 및 base64 인코딩
-        character_data = get_glb_base64("models/character.glb")
-        pillow_data = get_glb_base64("models/pillow.glb")
-        
-        if not character_data or not pillow_data:
-            return None
-            
-        # Three.js HTML 생성
-        html = f"""
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
-        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
-        {get_three_js_html(character_data, pillow_data)}
-        """
-        
-        return html
-    except Exception as e:
-        st.error(f"3D 씬 생성 중 오류 발생: {str(e)}")
-        return None
 
 # 메인 레이아웃
 st.title("🛏️ 메타버스 베게 데모")
@@ -246,11 +210,12 @@ col1, col2 = st.columns([3, 2])
 
 with col1:
     # 3D 씬 표시
-    html = create_3d_scene()
-    if html is not None:
-        st.components.v1.html(html, height=600)
-    else:
-        st.warning("3D 씬을 표시할 수 없습니다. 모델 파일을 확인해주세요.")
+    html = f"""
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    {get_three_js_html()}
+    """
+    st.components.v1.html(html, height=600)
 
 with col2:
     # 수면 통계
