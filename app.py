@@ -4,6 +4,8 @@ import numpy as np
 from PIL import Image
 import pandas as pd
 from datetime import datetime, timedelta
+import plotly.express as px
+import json
 
 # 페이지 설정
 st.set_page_config(
@@ -86,56 +88,73 @@ def save_sleep_record():
         # 최근 7일 기록만 유지
         st.session_state.sleep_history = st.session_state.sleep_history[-7:]
 
-# 3D 베게 모델 생성
-def create_pillow_model():
+# GLB 모델 로드 함수
+def load_glb_model(model_path):
     try:
-        # 간단한 3D 베게 모델 생성
-        x = np.linspace(-1, 1, 100)
-        y = np.linspace(-1, 1, 100)
-        X, Y = np.meshgrid(x, y)
+        with open(model_path, 'rb') as f:
+            model_data = f.read()
+        return model_data
+    except Exception as e:
+        st.error(f"모델 로드 중 오류 발생: {str(e)}")
+        return None
+
+# 3D 씬 생성 함수
+def create_3d_scene():
+    try:
+        # GLB 모델 로드
+        character_model = load_glb_model("models/character.glb")
+        pillow_model = load_glb_model("models/pillow.glb")
         
-        # 질감에 따른 Z값 조정
-        if st.session_state.pillow_texture == 'smooth':
-            Z = 0.2 * np.sin(X * np.pi) * np.sin(Y * np.pi)
-        elif st.session_state.pillow_texture == 'rough':
-            Z = 0.2 * np.sin(X * np.pi * 2) * np.sin(Y * np.pi * 2)
-        else:  # pattern
-            Z = 0.2 * (np.sin(X * np.pi * 3) + np.sin(Y * np.pi * 3))
+        if not character_model or not pillow_model:
+            return None
+            
+        # 3D 씬 생성
+        fig = go.Figure()
         
-        # 기본 색상 설정
-        base_color = st.session_state.pillow_color
+        # 캐릭터 추가
+        fig.add_trace(go.Scatter3d(
+            x=[0], y=[0], z=[0],
+            mode='markers',
+            marker=dict(
+                size=1,
+                color='rgba(0,0,0,0)'
+            ),
+            customdata=[character_model],
+            hovertemplate='캐릭터'
+        ))
         
-        # 시간대별 배경색 설정
-        bg_color = {
-            'night': 'rgb(20, 20, 40)',
-            'morning': 'rgb(240, 240, 255)',
-            'afternoon': 'rgb(255, 255, 240)'
-        }.get(st.session_state.time_of_day, 'rgb(255, 255, 255)')
+        # 베게 추가
+        fig.add_trace(go.Scatter3d(
+            x=[0], y=[0], z=[-0.5],
+            mode='markers',
+            marker=dict(
+                size=1,
+                color='rgba(0,0,0,0)'
+            ),
+            customdata=[pillow_model],
+            hovertemplate='베게'
+        ))
         
-        fig = go.Figure(data=[go.Surface(
-            x=X, y=Y, z=Z,
-            colorscale=[[0, base_color], [1, base_color]],
-            showscale=False
-        )])
-        
+        # 씬 설정
         fig.update_layout(
-            title='메타버스 베게',
             scene=dict(
                 xaxis_title='X',
                 yaxis_title='Y',
                 zaxis_title='Z',
-                camera=dict(eye=dict(x=1.5, y=1.5, z=1.5)),
-                bgcolor=bg_color
+                camera=dict(
+                    eye=dict(x=1.5, y=1.5, z=1.5),
+                    center=dict(x=0, y=0, z=0)
+                ),
+                aspectmode='cube'
             ),
             width=800,
             height=600,
-            margin=dict(l=0, r=0, t=30, b=0),
-            paper_bgcolor=bg_color,
-            plot_bgcolor=bg_color
+            margin=dict(l=0, r=0, t=30, b=0)
         )
+        
         return fig
     except Exception as e:
-        st.error(f"3D 모델 생성 중 오류가 발생했습니다: {str(e)}")
+        st.error(f"3D 씬 생성 중 오류 발생: {str(e)}")
         return None
 
 # 메인 레이아웃
@@ -178,12 +197,12 @@ with st.sidebar:
 col1, col2 = st.columns([3, 2])
 
 with col1:
-    # 3D 베게 모델 표시
-    fig = create_pillow_model()
+    # 3D 씬 표시
+    fig = create_3d_scene()
     if fig is not None:
         st.plotly_chart(fig, use_container_width=True, config={'responsive': True})
     else:
-        st.warning("3D 모델을 표시할 수 없습니다. 설정을 확인해주세요.")
+        st.warning("3D 씬을 표시할 수 없습니다. 모델 파일을 확인해주세요.")
 
 with col2:
     # 수면 통계
