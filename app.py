@@ -6,6 +6,7 @@ import pandas as pd
 from datetime import datetime, timedelta
 import plotly.express as px
 import json
+import base64
 
 # 페이지 설정
 st.set_page_config(
@@ -88,71 +89,99 @@ def save_sleep_record():
         # 최근 7일 기록만 유지
         st.session_state.sleep_history = st.session_state.sleep_history[-7:]
 
-# GLB 모델 로드 함수
-def load_glb_model(model_path):
+# GLB 파일을 base64로 인코딩하는 함수
+def get_glb_base64(model_path):
     try:
         with open(model_path, 'rb') as f:
             model_data = f.read()
-        return model_data
+        return base64.b64encode(model_data).decode('utf-8')
     except Exception as e:
         st.error(f"모델 로드 중 오류 발생: {str(e)}")
         return None
 
+# Three.js HTML 템플릿
+THREE_JS_TEMPLATE = """
+<div id="scene-container" style="width: 100%; height: 600px;"></div>
+<script type="module">
+    import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
+    import { GLTFLoader } from 'https://unpkg.com/three@0.157.0/examples/jsm/loaders/GLTFLoader.js';
+    import { OrbitControls } from 'https://unpkg.com/three@0.157.0/examples/jsm/controls/OrbitControls.js';
+
+    // 씬 설정
+    const container = document.getElementById('scene-container');
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    container.appendChild(renderer.domElement);
+
+    // 조명 설정
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+    directionalLight.position.set(5, 5, 5);
+    scene.add(directionalLight);
+
+    // 컨트롤 설정
+    const controls = new OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    camera.position.set(2, 2, 2);
+    controls.update();
+
+    // GLB 로더
+    const loader = new GLTFLoader();
+
+    // 캐릭터 모델 로드
+    const characterData = '{character_data}';
+    const characterBlob = new Blob([Uint8Array.from(atob(characterData), c => c.charCodeAt(0))], { type: 'model/gltf-binary' });
+    const characterUrl = URL.createObjectURL(characterBlob);
+    loader.load(characterUrl, (gltf) => {
+        scene.add(gltf.scene);
+    });
+
+    // 베게 모델 로드
+    const pillowData = '{pillow_data}';
+    const pillowBlob = new Blob([Uint8Array.from(atob(pillowData), c => c.charCodeAt(0))], { type: 'model/gltf-binary' });
+    const pillowUrl = URL.createObjectURL(pillowBlob);
+    loader.load(pillowUrl, (gltf) => {
+        gltf.scene.position.y = -0.5;
+        scene.add(gltf.scene);
+    });
+
+    // 애니메이션 루프
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+
+    // 반응형 처리
+    window.addEventListener('resize', () => {
+        camera.aspect = container.clientWidth / container.clientHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(container.clientWidth, container.clientHeight);
+    });
+</script>
+"""
+
 # 3D 씬 생성 함수
 def create_3d_scene():
     try:
-        # GLB 모델 로드
-        character_model = load_glb_model("models/character.glb")
-        pillow_model = load_glb_model("models/pillow.glb")
+        # GLB 파일 로드 및 base64 인코딩
+        character_data = get_glb_base64("models/character.glb")
+        pillow_data = get_glb_base64("models/pillow.glb")
         
-        if not character_model or not pillow_model:
+        if not character_data or not pillow_data:
             return None
             
-        # 3D 씬 생성
-        fig = go.Figure()
-        
-        # 캐릭터 추가
-        fig.add_trace(go.Scatter3d(
-            x=[0], y=[0], z=[0],
-            mode='markers',
-            marker=dict(
-                size=1,
-                color='rgba(0,0,0,0)'
-            ),
-            customdata=[character_model],
-            hovertemplate='캐릭터'
-        ))
-        
-        # 베게 추가
-        fig.add_trace(go.Scatter3d(
-            x=[0], y=[0], z=[-0.5],
-            mode='markers',
-            marker=dict(
-                size=1,
-                color='rgba(0,0,0,0)'
-            ),
-            customdata=[pillow_model],
-            hovertemplate='베게'
-        ))
-        
-        # 씬 설정
-        fig.update_layout(
-            scene=dict(
-                xaxis_title='X',
-                yaxis_title='Y',
-                zaxis_title='Z',
-                camera=dict(
-                    eye=dict(x=1.5, y=1.5, z=1.5),
-                    center=dict(x=0, y=0, z=0)
-                ),
-                aspectmode='cube'
-            ),
-            width=800,
-            height=600,
-            margin=dict(l=0, r=0, t=30, b=0)
+        # Three.js HTML 생성
+        html = THREE_JS_TEMPLATE.format(
+            character_data=character_data,
+            pillow_data=pillow_data
         )
         
-        return fig
+        return html
     except Exception as e:
         st.error(f"3D 씬 생성 중 오류 발생: {str(e)}")
         return None
@@ -198,9 +227,9 @@ col1, col2 = st.columns([3, 2])
 
 with col1:
     # 3D 씬 표시
-    fig = create_3d_scene()
-    if fig is not None:
-        st.plotly_chart(fig, use_container_width=True, config={'responsive': True})
+    html = create_3d_scene()
+    if html is not None:
+        st.components.v1.html(html, height=600)
     else:
         st.warning("3D 씬을 표시할 수 없습니다. 모델 파일을 확인해주세요.")
 
