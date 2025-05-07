@@ -74,69 +74,55 @@ def save_sleep_record():
 
 # 3D 베게 모델 생성
 def create_pillow_model():
-    # 간단한 3D 베게 모델 생성
-    x = np.linspace(-1, 1, 100)
-    y = np.linspace(-1, 1, 100)
-    X, Y = np.meshgrid(x, y)
-    
-    # 질감에 따른 Z값 조정
-    if st.session_state.pillow_texture == 'smooth':
-        Z = 0.2 * np.sin(X * np.pi) * np.sin(Y * np.pi)
-    elif st.session_state.pillow_texture == 'rough':
-        Z = 0.2 * np.sin(X * np.pi * 2) * np.sin(Y * np.pi * 2)
-    else:  # pattern
-        Z = 0.2 * (np.sin(X * np.pi * 3) + np.sin(Y * np.pi * 3))
-    
-    # 시간대별 색상 조정
-    base_color = st.session_state.pillow_color
-    if st.session_state.time_of_day == 'night':
-        # 밤에는 어두운 색상으로
-        colorscale = [
-            [0, base_color],
-            [1, base_color]
-        ]
-    elif st.session_state.time_of_day == 'morning':
-        # 아침에는 밝은 색상으로
-        colorscale = [
-            [0, base_color],
-            [1, base_color]
-        ]
-    else:  # afternoon
-        # 오후에는 중간 톤으로
-        colorscale = [
-            [0, base_color],
-            [1, base_color]
-        ]
-    
-    fig = go.Figure(data=[go.Surface(
-        x=X, y=Y, z=Z,
-        colorscale=colorscale,
-        showscale=False
-    )])
-    
-    # 시간대별 배경색 설정
-    bg_color = {
-        'night': 'rgb(20, 20, 40)',
-        'morning': 'rgb(240, 240, 255)',
-        'afternoon': 'rgb(255, 255, 240)'
-    }[st.session_state.time_of_day]
-    
-    fig.update_layout(
-        title='메타버스 베게',
-        scene=dict(
-            xaxis_title='X',
-            yaxis_title='Y',
-            zaxis_title='Z',
-            camera=dict(eye=dict(x=1.5, y=1.5, z=1.5)),
-            bgcolor=bg_color
-        ),
-        width=800,
-        height=600,
-        margin=dict(l=0, r=0, t=30, b=0),
-        paper_bgcolor=bg_color,
-        plot_bgcolor=bg_color
-    )
-    return fig
+    try:
+        # 간단한 3D 베게 모델 생성
+        x = np.linspace(-1, 1, 100)
+        y = np.linspace(-1, 1, 100)
+        X, Y = np.meshgrid(x, y)
+        
+        # 질감에 따른 Z값 조정
+        if st.session_state.pillow_texture == 'smooth':
+            Z = 0.2 * np.sin(X * np.pi) * np.sin(Y * np.pi)
+        elif st.session_state.pillow_texture == 'rough':
+            Z = 0.2 * np.sin(X * np.pi * 2) * np.sin(Y * np.pi * 2)
+        else:  # pattern
+            Z = 0.2 * (np.sin(X * np.pi * 3) + np.sin(Y * np.pi * 3))
+        
+        # 기본 색상 설정
+        base_color = st.session_state.pillow_color
+        
+        # 시간대별 배경색 설정
+        bg_color = {
+            'night': 'rgb(20, 20, 40)',
+            'morning': 'rgb(240, 240, 255)',
+            'afternoon': 'rgb(255, 255, 240)'
+        }.get(st.session_state.time_of_day, 'rgb(255, 255, 255)')
+        
+        fig = go.Figure(data=[go.Surface(
+            x=X, y=Y, z=Z,
+            colorscale=[[0, base_color], [1, base_color]],
+            showscale=False
+        )])
+        
+        fig.update_layout(
+            title='메타버스 베게',
+            scene=dict(
+                xaxis_title='X',
+                yaxis_title='Y',
+                zaxis_title='Z',
+                camera=dict(eye=dict(x=1.5, y=1.5, z=1.5)),
+                bgcolor=bg_color
+            ),
+            width=800,
+            height=600,
+            margin=dict(l=0, r=0, t=30, b=0),
+            paper_bgcolor=bg_color,
+            plot_bgcolor=bg_color
+        )
+        return fig
+    except Exception as e:
+        st.error(f"3D 모델 생성 중 오류가 발생했습니다: {str(e)}")
+        return None
 
 # 메인 레이아웃
 st.title("🛏️ 메타버스 베게 데모")
@@ -180,7 +166,10 @@ col1, col2 = st.columns([3, 2])
 with col1:
     # 3D 베게 모델 표시
     fig = create_pillow_model()
-    st.plotly_chart(fig, use_container_width=True, config={'responsive': True})
+    if fig is not None:
+        st.plotly_chart(fig, use_container_width=True, config={'responsive': True})
+    else:
+        st.warning("3D 모델을 표시할 수 없습니다. 설정을 확인해주세요.")
 
 with col2:
     # 수면 통계
