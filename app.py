@@ -38,19 +38,33 @@ def calculate_sleep_quality():
     # 기본 점수 (최대 70점)
     base_score = min(70, sleep_duration / 2)
     
+    # 시간대 매핑
+    time_mapping = {
+        "아침": "morning",
+        "오후": "afternoon",
+        "밤": "night"
+    }
+    
     # 시간대 보너스 (최대 20점)
     time_bonus = {
         'night': 20,
         'morning': 10,
         'afternoon': 5
-    }[st.session_state.time_of_day]
+    }.get(time_mapping.get(st.session_state.time_of_day, 'night'), 0)
+    
+    # 질감 매핑
+    texture_mapping = {
+        "부드러운": "smooth",
+        "거친": "rough",
+        "패턴": "pattern"
+    }
     
     # 질감 보너스 (최대 10점)
     texture_bonus = {
         'smooth': 10,
         'rough': 5,
         'pattern': 7
-    }[st.session_state.pillow_texture]
+    }.get(texture_mapping.get(st.session_state.pillow_texture, 'smooth'), 0)
     
     return min(100, int(base_score + time_bonus + texture_bonus))
 
@@ -148,7 +162,7 @@ with st.sidebar:
         "베게 질감",
         ["부드러운", "거친", "패턴"]
     )
-    st.session_state.pillow_texture = texture.lower()
+    st.session_state.pillow_texture = texture
     
     # 수면 시작/종료 버튼
     if st.button("수면 시작" if not st.session_state.is_sleeping else "깨우기", 
