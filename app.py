@@ -7,6 +7,7 @@ from datetime import datetime, timedelta
 import plotly.express as px
 import json
 import base64
+import os
 
 # 페이지 설정
 st.set_page_config(
@@ -102,12 +103,8 @@ def get_glb_base64(model_path):
 # Three.js HTML 템플릿
 THREE_JS_TEMPLATE = """
 <div id="scene-container" style="width: 100%; height: 600px;"></div>
-<script type="module">
-    import * as THREE from 'https://unpkg.com/three@0.157.0/build/three.module.js';
-    import { GLTFLoader } from 'https://unpkg.com/three@0.157.0/examples/jsm/loaders/GLTFLoader.js';
-    import { OrbitControls } from 'https://unpkg.com/three@0.157.0/examples/jsm/controls/OrbitControls.js';
-
-    // 씬 설정
+<script>
+    // Three.js 초기화
     const container = document.getElementById('scene-container');
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(75, container.clientWidth / container.clientHeight, 0.1, 1000);
@@ -123,13 +120,13 @@ THREE_JS_TEMPLATE = """
     scene.add(directionalLight);
 
     // 컨트롤 설정
-    const controls = new OrbitControls(camera, renderer.domElement);
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     camera.position.set(2, 2, 2);
     controls.update();
 
     // GLB 로더
-    const loader = new GLTFLoader();
+    const loader = new THREE.GLTFLoader();
 
     // 캐릭터 모델 로드
     const characterData = '{character_data}';
@@ -176,10 +173,15 @@ def create_3d_scene():
             return None
             
         # Three.js HTML 생성
-        html = THREE_JS_TEMPLATE.format(
+        html = f"""
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+        {THREE_JS_TEMPLATE.format(
             character_data=character_data,
             pillow_data=pillow_data
-        )
+        )}
+        """
         
         return html
     except Exception as e:
